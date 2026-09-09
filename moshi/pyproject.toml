@@ -47,3 +47,6 @@ dev = [
 # (e.g. via "Format modified lines" in VSCode), you'll get these settings
 [tool.ruff]
 line-length = 120
+
+[tool.uv]
+exclude-newer = "7 days"
