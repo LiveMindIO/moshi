@@ -16,6 +16,7 @@ for Mimi. Also defines the main interface that a model must follow to be usable 
 from abc import abstractmethod
 from dataclasses import dataclass
 import logging
+import os
 import typing as tp
 
 import torch
@@ -219,14 +220,23 @@ class MimiModel(CompressionModel[_MimiState]):
     def _init_streaming_state(self, batch_size: int) -> _MimiState:
         device = next(self.parameters()).device
         disable = device.type != 'cuda'
+        graph_decoder_on_xpu = device.type == 'xpu' and os.environ.get('TTS_XPU_MIMI_GRAPHS') == '1'
         graphed_tr_dec = None
         graphed_tr_enc = None
         if self.encoder_transformer is not None:
             graphed_tr_enc = CUDAGraphed(self.encoder_transformer, disable=disable)
         if self.decoder_transformer is not None:
-            graphed_tr_dec = CUDAGraphed(self.decoder_transformer, disable=disable)
+            graphed_tr_dec = CUDAGraphed(
+                self.decoder_transformer,
+                disable=disable and not graph_decoder_on_xpu,
+                graph_device='xpu' if graph_decoder_on_xpu else 'cuda',
+            )
         graphed_encoder = CUDAGraphed(self.encoder, disable=disable)
-        graphed_decoder = CUDAGraphed(self.decoder, disable=disable)
+        graphed_decoder = CUDAGraphed(
+            self.decoder,
+            disable=disable and not graph_decoder_on_xpu,
+            graph_device='xpu' if graph_decoder_on_xpu else 'cuda',
+        )
         return _MimiState(batch_size, device, graphed_tr_enc, graphed_tr_dec, graphed_encoder, graphed_decoder)
 
     @property

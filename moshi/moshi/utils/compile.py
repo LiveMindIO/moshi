@@ -199,11 +199,20 @@ class CUDAGraphed:
         disabled: if True, just call the func directly, useful to quickly deactivate on CPU.
     """
 
-    def __init__(self, func: tp.Callable, warmup_steps: int = 1, disable: bool = False):
+    def __init__(
+        self,
+        func: tp.Callable,
+        warmup_steps: int = 1,
+        disable: bool = False,
+        graph_device: str = "cuda",
+    ):
+        if graph_device not in {"cuda", "xpu"}:
+            raise ValueError("graph_device must be cuda or xpu")
         self.func = func
         self.warmup_steps = warmup_steps
         self.disable = disable
-        self._graph: cuda.CUDAGraph | None = None
+        self._graph_backend = cuda if graph_device == "cuda" else torch.xpu
+        self._graph: cuda.CUDAGraph | torch.xpu.XPUGraph | None = None
         self._output: tuple | None = None
         self._args: tuple | None = None
 
@@ -262,10 +271,13 @@ class CUDAGraphed:
             # Prevent any one under us to try and CUDA Graph things.
             if self._graph is None:
                 if self.warmup_steps <= 0:
-                    self._graph = cuda.CUDAGraph()
+                    if self._graph_backend is cuda:
+                        self._graph = cuda.CUDAGraph()
+                    else:
+                        self._graph = torch.xpu.XPUGraph()
                     # Making a copy just to ensure those are not used else where.
                     self._args = _clone_tensors(args)
-                    with cuda.graph(self._graph):
+                    with self._graph_backend.graph(self._graph):
                         self._output = self.func(*self._args)
                     # At this point nothing really happened, so we have to make it run for real.
                     self._graph.replay()
