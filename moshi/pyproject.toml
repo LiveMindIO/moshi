@@ -11,7 +11,7 @@ dependencies = [
     "sentencepiece >= 0.2.0, < 0.3",
     "sounddevice == 0.5",
     "sphn >= 0.2.0, < 0.3.0",
-    "torch >= 2.14, < 2.15",
+    "torch >= 2.16.0.dev20261007, < 2.17",
     "aiohttp>=3.10.5, <3.12",
     "tqdm >= 4.48",
 ]
